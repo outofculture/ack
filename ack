@@ -1328,6 +1328,7 @@ sub get_command_line_options {
         1                       => sub { $opt{1} = $opt{m} = 1 },
         'A|after-context=i'     => \$opt{after_context},
         'B|before-context=i'    => \$opt{before_context},
+        'before-context-regex=s'=> \$opt{before_context_regex},
         'C|context:i'           => sub { shift; my $val = shift; $opt{before_context} = $opt{after_context} = ($val || 2) },
         'a|all-types'           => \$opt{all},
         'break!'                => \$opt{break},
@@ -2064,10 +2065,13 @@ sub search_resource {
     $any_output = 0;
     my $before_context = $opt->{before_context};
     my $after_context  = $opt->{after_context};
+    my $before_context_regex = $opt->{before_context_regex};
 
-    $keep_context = ($before_context || $after_context) && !$passthru;
+    $keep_context = ($before_context || $after_context || $before_context_regex) && !$passthru;
 
     my @before;
+    my $before_match;
+    my $before_match_line;
     my $before_starts_at_line;
     my $after = 0; # number of lines still to print after a match
 
@@ -2099,6 +2103,12 @@ sub search_resource {
                     }
                     push @before, $_;
                 }
+                elsif ( $before_context_regex ) {
+                    if ( m/$before_context_regex/ ) {
+                        $before_match = $_;
+                        $before_match_line = $.;
+                    }
+                }
                 last if $max && ( $nmatches >= $max ) && !$after;
             }
             next;
@@ -2118,6 +2128,9 @@ sub search_resource {
             last;
         }
         if ( $keep_context ) {
+            if ( $before_match ) {
+                print_match_or_context( $opt, 0, $before_match_line, $-[0], $+[0], $before_match );
+            }
             if ( @before ) {
                 print_match_or_context( $opt, 0, $before_starts_at_line, $-[0], $+[0], @before );
                 @before = ();
